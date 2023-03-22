@@ -65,19 +65,28 @@ def pubchem_query_best_match(query_keyword):
             Compound_CID = line.split(":")[1].strip()
             break
     sdf_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{Compound_CID}/record/SDF/?record_type=3d&response_type=save&response_basename=Conformer3D_CID_{Compound_CID}'
-    return (compound_url, sdf_url)
+    data_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{Compound_CID}/JSON/?response_type=save&response_basename=compound_CID_{Compound_CID}'
+    return (compound_url, sdf_url, data_url)
 
 if __name__ == "__main__":
+    
     merck_pages  =os.listdir("pages")
     merck_ids = [  page.split(".")[0] for page in merck_pages]
 
 
     for id in merck_ids:
         query_keyword = get_query_key_from_merck_id(id)
-        compound_url, sdf_url = pubchem_query_best_match(query_keyword)
+        compound_url, sdf_url, data_url = pubchem_query_best_match(query_keyword)
+
         r = requests.get(sdf_url)
         if r.status_code == 200:
             with open(f'pubchem_sdfs/{id}.sdf', "w") as f:
                 f.write(r.text)
+
+        r = requests.get(data_url)
+        if r.status_code == 200:
+            with open(f'pubchem_datas/{id}.json', "w") as f:
+                f.write(r.text)
+
         with open("pubchem_merck_index.csv", "a") as f:
             f.write(f'{id}, {query_keyword},  {compound_url} '+ "\n")
