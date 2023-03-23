@@ -3,3 +3,7 @@ pages/.DS_Store
 pages/*.html
 *.hdf5
 xyzs/*.xyz
+pubchem_datas/
+pubchem_sdfs/
+pubchem_pages/
+query_pages/

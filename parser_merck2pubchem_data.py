@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 
-driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+
 keywords = (
     "Monograph ID",
     "Title",
@@ -45,14 +45,15 @@ def get_query_key_from_merck_id(id):
         text =f.read()
     res = parse(text)
 
-    query_keyword =['Title']
+    query_keyword = res['Title']
 
     return query_keyword
 
-def pubchem_query_best_match(query_keyword):
+def pubchem_query_best_match_selenium(query_keyword):
     query_url = f'https://pubchem.ncbi.nlm.nih.gov/#query={query_keyword}'
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     driver.get(query_url)
-    time.sleep(2)
+    time.sleep(5)
     root = driver.find_element(By.ID,"root")
     best_match = root.find_element(By.ID,"featured-results")
     link_element = best_match.find_element(By.TAG_NAME,"a") 
@@ -68,16 +69,39 @@ def pubchem_query_best_match(query_keyword):
     data_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{Compound_CID}/JSON/?response_type=save&response_basename=compound_CID_{Compound_CID}'
     return (compound_url, sdf_url, data_url)
 
+def pubchem_query_best_match_bs(query_keyword):
+    query_url = f'https://pubchem.ncbi.nlm.nih.gov/#query={query_keyword}'
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+    driver.get(query_url)
+    time.sleep(5)
+    root = driver.find_element(By.ID,"root")
+    best_match = root.find_element(By.ID,"featured-results")
+    link_element = best_match.find_element(By.TAG_NAME,"a") 
+    compound_url = link_element.get_attribute("href")
+
+    best_match_infos= best_match.text
+    Compound_CID = ""
+    for line in best_match_infos.split("\n"):
+        if line.startswith("Compound CID"):
+            Compound_CID = line.split(":")[1].strip()
+            break
+    sdf_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{Compound_CID}/record/SDF/?record_type=3d&response_type=save&response_basename=Conformer3D_CID_{Compound_CID}'
+    data_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{Compound_CID}/JSON/?response_type=save&response_basename=compound_CID_{Compound_CID}'
+    return (compound_url, sdf_url, data_url)
 if __name__ == "__main__":
     
     merck_pages  =os.listdir("pages")
     merck_ids = [  page.split(".")[0] for page in merck_pages]
-
+    sdfs_done  =os.listdir("pubchem_sdfs")
 
     for id in merck_ids:
+        if f'{id}.sdf' in sdfs_done :
+            continue
         query_keyword = get_query_key_from_merck_id(id)
-        compound_url, sdf_url, data_url = pubchem_query_best_match(query_keyword)
-
+        compound_url, sdf_url, data_url = pubchem_query_best_match_selenium(query_keyword)
+        
+        with open("pubchem_merck_index.csv", "a") as f:
+            f.write(f'{id}, {query_keyword},  {compound_url} '+ "\n")
         r = requests.get(sdf_url)
         if r.status_code == 200:
             with open(f'pubchem_sdfs/{id}.sdf', "w") as f:
@@ -87,6 +111,3 @@ if __name__ == "__main__":
         if r.status_code == 200:
             with open(f'pubchem_datas/{id}.json', "w") as f:
                 f.write(r.text)
-
-        with open("pubchem_merck_index.csv", "a") as f:
-            f.write(f'{id}, {query_keyword},  {compound_url} '+ "\n")
