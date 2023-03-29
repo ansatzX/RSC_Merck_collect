@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 import re
-import pandas as pd
+import os
 import h5py
 
 string = h5py.string_dtype(encoding='utf-8')
@@ -14,41 +14,49 @@ keywords = (
     "Standard InChI",
 )
     
-def parse(text):
-    soup = BeautifulSoup(text, features="lxml")
-    text = soup.get_text()
-    
-    state = 0
-    res = {}
-    for line in text.split("\n"):
-        if state == 0:
-            pattern = "|".join(["^" + k + ":" for k in keywords])
-            pattern = re.compile(pattern)
-            m = re.match(pattern, line)
-            if m:
-                state = 1
-                keyword = m.group().strip(":")
-        elif state == 1:
-            if line.strip():
-                res[keyword] = line.strip()
-                state = 0
+def parse(html_text):
+    res = []
+    soup = BeautifulSoup(html_text, features="lxml")
+    strongs = soup.find_all("strong")
+    for strong in strongs:
+        parent = ""
+        if str(strong.string) == 'CAS number:' :
+            parent = strong.parent
+
+        if len(parent) != 0:
+            cas_number_text = str(parent.text)
+            cas_number = cas_number_text.split(":")[1].strip()
+            res.append(cas_number)
+
     
     return res
     
 def store_dat2h5(id, data, handler):
 
     group = handler.create_group(str(id))
-    for key in data.keys():
+    for i in range(len(data)):
         # dims = len(data[key])
-        group.create_dataset(key, dtype=string, shape=(1))[...] = data[key]
+        dat = data[i]
+        group.create_dataset(str(i), dtype=string, shape=(1))[...] = dat
 
-df = pd.DataFrame(columns=keywords)
-handler = h5py.File("testdb.hdf5", "w")
-for i in range(1, 12287):
-    text = open("pages/%d.html" % (i)).read()
-    res = parse(text)
-    if "Standard InChIKey" in res.keys():
-        store_dat2h5(i, res, handler)
-        print("Done on "+str(i))
+if __name__ == "__main__":
+    folder = "./merck_chm_7z_pages"
+    files = os.listdir(folder)
+    compounds = []
+    reactions = []
+    for htm in files:
+        if len(htm) == 7:
+            reactions.append(htm)
+        else:
+            compounds.append(htm)
+    handler = h5py.File("merck_db.hdf5", "w")
+    for i in range(len(compounds)):
+        drug = os.path.join(folder, compounds[i])
+        with open(drug) as f:
+            text = f.read()
+        res = parse(text)
+        if len(res) != 0 :
+            store_dat2h5(compounds[i], res, handler)
+            print("Done on "+str(i))
 
-handler.close()
+    handler.close()

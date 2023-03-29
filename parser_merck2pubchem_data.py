@@ -3,11 +3,22 @@ import requests
 import re
 import time
 import os
+import h5py
+import pubchempy as pcp
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 
+def merck_casnum_from_h5(h5db):
+    handler = h5py.File(h5db, "r")
+    cas_numbers = []
+    for id in handler:
+        dat = handler[id]
+        for i in range(len(dat)):
+            cas_numbers.append(dat[str(i)][0].decode())
+    handler.close()
+    return cas_numbers
 
 keywords = (
     "Monograph ID",
@@ -88,6 +99,9 @@ def pubchem_query_best_match_bs(query_keyword):
     sdf_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{Compound_CID}/record/SDF/?record_type=3d&response_type=save&response_basename=Conformer3D_CID_{Compound_CID}'
     data_url =f'https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{Compound_CID}/JSON/?response_type=save&response_basename=compound_CID_{Compound_CID}'
     return (compound_url, sdf_url, data_url)
+
+def puchem_query_best_match_pcp(query_keyword):
+    return 0
 if __name__ == "__main__":
     
     merck_pages  =os.listdir("pages")
